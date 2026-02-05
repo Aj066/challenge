@@ -2,67 +2,76 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION = "us-east-1"
-        TF_IN_AUTOMATION = "true"
-        TF_VAR_key_name = "ec2-user"
+        AWS_DEFAULT_REGION = "us-east-1"
     }
 
     stages {
 
         stage('Checkout') {
             steps {
-                git branch: 'release',
-                    url: 'https://github.com/Aj066/challenge.git'
+                git url: 'https://github.com/Aj066/challenge.git',
+                    branch: 'release'
             }
         }
 
         stage('Terraform Init') {
             steps {
-                dir('ansible-challenge/terraform') {
+                dir('ci-pipeline/terraform') {
                     sh 'terraform init'
-                }
-            }
-        }
-
-        stage('Terraform Validate') {
-            steps {
-                dir('ansible-challenge/terraform') {
-                    sh 'terraform validate'
                 }
             }
         }
 
         stage('Terraform Apply') {
             steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'aws-creds',
-                    usernameVariable: 'AWS_ACCESS_KEY_ID',
-                    passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                )]) {
-                    dir('ansible-challenge/terraform') {
+                withCredentials([
+                    string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
+                    dir('ci-pipeline/terraform') {
                         sh '''
-                        export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-                        export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
-                        terraform apply -auto-approve
+                          terraform apply -auto-approve
                         '''
                     }
                 }
             }
         }
 
-        stage('Generate Inventory') {
+        stage('Ansible Configure') {
             steps {
-                dir('ansible-challenge/terraform') {
-                    sh 'terraform output -raw inventory > ../ansible/inventory.ini'
-                }
-            }
-        }
+                withCredentials([
+                    sshUserPrivateKey(
+                        credentialsId: 'ssh-private-key',
+                        keyFileVariable: 'SSH_KEY',
+                        usernameVariable: 'SSH_USER'
+                    )
+                ]) {
+                    dir('ci-pipeline/ansible') {
+                        script {
+                            // Fetch backend IP safely from Terraform output
+                            def backend_ip = sh(
+                                script: "terraform -chdir=../terraform output -raw backend_ip || echo ''",
+                                returnStdout: true
+                            ).trim()
 
-        stage('Run Ansible') {
-            steps {
-                sshagent(['ec2-ssh-key']) {
-                    dir('ansible-challenge/ansible') {
-                        sh 'ansible-playbook -i inventory.ini site.yml'
+                            if (!backend_ip) {
+                                error "❌ Terraform output 'backend_ip' not found! Make sure it's defined in Terraform."
+                            } else {
+                                echo "✅ Backend IP found: ${backend_ip}"
+                            }
+
+                            sh """
+                              chmod 600 \$SSH_KEY
+                              export ANSIBLE_HOST_KEY_CHECKING=False
+
+                              ansible-playbook \
+                                -i inventory \
+                                site.yml \
+                                --user=\$SSH_USER \
+                                --private-key=\$SSH_KEY \
+                                --extra-vars "backend_ip=${backend_ip}"
+                            """
+                        }
                     }
                 }
             }
@@ -70,7 +79,11 @@ pipeline {
     }
 
     post {
-        success { echo 'Deployment successful!' }
-        failure { echo 'Pipeline failed!' }
+        success {
+            echo '🎉 Pipeline completed successfully without errors!'
+        }
+        failure {
+            echo '❌ Pipeline failed. Check logs above.'
+        }
     }
 }
