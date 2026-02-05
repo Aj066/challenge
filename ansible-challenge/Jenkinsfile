@@ -42,6 +42,11 @@ pipeline {
         }
 
         stage('Generate Inventory') {
-            steps {
-                dir('ansible-challenge/terraform') {
-                    sh 'terraform output -raw inve
+    steps {
+        dir('ansible-challenge/terraform') {
+            sh '''
+            terraform output -raw inventory > ../ansible/inventory.ini
+            '''
+        }
+    }
+}
