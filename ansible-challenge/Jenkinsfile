@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         AWS_DEFAULT_REGION = "us-east-1"
-        TF_VAR_key_name    = "devops-key"   // 👈 your EC2 key pair name
+        TF_VAR_key_name    = "ec2-user"   // 👈 your EC2 key pair name
     }
 
     stages {
