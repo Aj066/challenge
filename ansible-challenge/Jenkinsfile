@@ -8,10 +8,10 @@ pipeline {
 
     stages {
 
-        stage('Checkout Code') {
+        stage('Checkout') {
             steps {
                 git branch: 'release',
-                    url: 'https://your-repo-url.git'
+                    url: 'https://github.com/Aj066/challenge.git'
             }
         }
 
@@ -39,7 +39,7 @@ pipeline {
             }
         }
 
-        stage('Generate Ansible Inventory') {
+        stage('Generate Inventory') {
             steps {
                 dir('ansible-challenge/terraform') {
                     sh 'terraform output -raw inventory > ../ansible/inventory.ini'
@@ -47,11 +47,21 @@ pipeline {
             }
         }
 
-        stage('Run Ansible Playbook') {
+        stage('Run Ansible') {
             steps {
                 dir('ansible-challenge/ansible') {
-                    sh '''
-                        ansible-playbook \
-                        -i inventory.ini \
-                        site.yml
-                    '''
+                    sh 'ansible-playbook -i inventory.ini site.yml'
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Deployment successful!'
+        }
+        failure {
+            echo 'Pipeline failed!'
+        }
+    }
+}
