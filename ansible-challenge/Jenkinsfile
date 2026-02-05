@@ -4,7 +4,7 @@ pipeline {
     environment {
         AWS_REGION = "us-east-1"
         TF_IN_AUTOMATION = "true"
-        TF_VAR_key_name = "ec2-user"   
+        TF_VAR_key_name = "devops-key"   // 👈 your AWS EC2 keypair NAME
     }
 
     stages {
@@ -33,17 +33,13 @@ pipeline {
         }
 
         stage('Terraform Apply') {
-    steps {
-        dir('ansible-challenge/terraform') {
-            sh '''
-            export AWS_ACCESS_KEY_ID=YOUR_KEY
-            export AWS_SECRET_ACCESS_KEY=YOUR_SECRET
-            terraform apply -auto-approve
-            '''
-                           }
-                     }
-               }
-
+            steps {
+                dir('ansible-challenge/terraform') {
+                    sh '''
+                    terraform apply -auto-approve
+                    '''
+                }
+            }
         }
 
         stage('Generate Inventory') {
