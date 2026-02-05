@@ -1,13 +1,6 @@
 provider "aws" {
   region = var.region
 }
-resource "local_file" "inventory" {
-  content = templatefile("${path.module}/inventory.tpl", {
-    frontend_ip = aws_instance.frontend.public_ip
-    backend_ip  = aws_instance.backend.public_ip
-  })
-  filename = "./../ansible/inventory.ini"
-}
 
 # 🔐 Security Group
 resource "aws_security_group" "devops_sg" {
