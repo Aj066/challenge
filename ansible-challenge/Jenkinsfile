@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         AWS_DEFAULT_REGION = "us-east-1"
-        TF_VAR_key_name    = "ec2-user"   // 👈 your EC2 key pair name
+        TF_VAR_key_name    = "ec2-user"
     }
 
     stages {
@@ -42,11 +42,42 @@ pipeline {
         }
 
         stage('Generate Inventory') {
-    steps {
-        dir('ansible-challenge/terraform') {
-            sh '''
-            terraform output -raw inventory > ../ansible/inventory.ini
-            '''
+            steps {
+                dir('ansible-challenge/terraform') {
+                    sh '''
+                    terraform output -raw inventory > ../ansible/inventory.ini
+                    '''
+                }
+            }
+        }
+
+        stage('Ansible Configure') {
+            steps {
+                withCredentials([sshUserPrivateKey(
+                    credentialsId: 'ssh-private-key',
+                    keyFileVariable: 'SSH_KEY',
+                    usernameVariable: 'SSH_USER'
+                )]) {
+                    dir('ansible-challenge/ansible') {
+                        sh '''
+                        chmod 600 $SSH_KEY
+                        export ANSIBLE_HOST_KEY_CHECKING=False
+                        ansible-playbook -i inventory.ini site.yml \
+                          --user=$SSH_USER \
+                          --private-key=$SSH_KEY
+                        '''
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '🎉 Pipeline completed successfully!'
+        }
+        failure {
+            echo '❌ Pipeline failed. Check logs above.'
         }
     }
 }
