@@ -4,6 +4,7 @@ pipeline {
     environment {
         AWS_REGION = "us-east-1"
         TF_IN_AUTOMATION = "true"
+        TF_VAR_key_name = "ec2-user"   
     }
 
     stages {
@@ -33,8 +34,13 @@ pipeline {
 
         stage('Terraform Apply') {
             steps {
-                dir('ansible-challenge/terraform') {
-                    sh 'terraform apply -auto-approve'
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-creds'
+                ]]) {
+                    dir('ansible-challenge/terraform') {
+                        sh 'terraform apply -auto-approve'
+                    }
                 }
             }
         }
@@ -49,8 +55,14 @@ pipeline {
 
         stage('Run Ansible') {
             steps {
-                dir('ansible-challenge/ansible') {
-                    sh 'ansible-playbook -i inventory.ini site.yml'
+                sshagent(['ec2-ssh-key']) {
+                    dir('ansible-challenge/ansible') {
+                        sh '''
+                        ansible-playbook \
+                        -i inventory.ini \
+                        site.yml
+                        '''
+                    }
                 }
             }
         }
