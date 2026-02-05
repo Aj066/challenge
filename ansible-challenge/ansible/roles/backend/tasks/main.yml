@@ -1,10 +1,12 @@
-- name: Install Apache
-  package:
-    name: apache2
-    state: present
+- name: Install Netdata
+  shell: bash <(curl -Ss https://my-netdata.io/kickstart.sh)
+  args:
+    executable: /bin/bash
+  become: yes
 
-- name: Start Apache
+- name: Ensure Netdata running
   service:
-    name: apache2
+    name: netdata
     state: started
     enabled: yes
+  become: yes
