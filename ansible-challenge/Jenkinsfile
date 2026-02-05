@@ -1,0 +1,57 @@
+pipeline {
+    agent any
+
+    environment {
+        AWS_REGION = "us-east-1"
+        TF_IN_AUTOMATION = "true"
+    }
+
+    stages {
+
+        stage('Checkout Code') {
+            steps {
+                git branch: 'release',
+                    url: 'https://your-repo-url.git'
+            }
+        }
+
+        stage('Terraform Init') {
+            steps {
+                dir('ansible-challenge/terraform') {
+                    sh 'terraform init'
+                }
+            }
+        }
+
+        stage('Terraform Validate') {
+            steps {
+                dir('ansible-challenge/terraform') {
+                    sh 'terraform validate'
+                }
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+                dir('ansible-challenge/terraform') {
+                    sh 'terraform apply -auto-approve'
+                }
+            }
+        }
+
+        stage('Generate Ansible Inventory') {
+            steps {
+                dir('ansible-challenge/terraform') {
+                    sh 'terraform output -raw inventory > ../ansible/inventory.ini'
+                }
+            }
+        }
+
+        stage('Run Ansible Playbook') {
+            steps {
+                dir('ansible-challenge/ansible') {
+                    sh '''
+                        ansible-playbook \
+                        -i inventory.ini \
+                        site.yml
+                    '''
