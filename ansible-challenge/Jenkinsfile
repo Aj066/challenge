@@ -4,7 +4,7 @@ pipeline {
     environment {
         AWS_REGION = "us-east-1"
         TF_IN_AUTOMATION = "true"
-        TF_VAR_key_name = "devops-key"   // 👈 your AWS EC2 keypair NAME
+        TF_VAR_key_name = "ec2-user"
     }
 
     stages {
@@ -34,10 +34,18 @@ pipeline {
 
         stage('Terraform Apply') {
             steps {
-                dir('ansible-challenge/terraform') {
-                    sh '''
-                    terraform apply -auto-approve
-                    '''
+                withCredentials([usernamePassword(
+                    credentialsId: 'aws-creds',
+                    usernameVariable: 'AWS_ACCESS_KEY_ID',
+                    passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                )]) {
+                    dir('ansible-challenge/terraform') {
+                        sh '''
+                        export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+                        export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+                        terraform apply -auto-approve
+                        '''
+                    }
                 }
             }
         }
@@ -54,11 +62,7 @@ pipeline {
             steps {
                 sshagent(['ec2-ssh-key']) {
                     dir('ansible-challenge/ansible') {
-                        sh '''
-                        ansible-playbook \
-                        -i inventory.ini \
-                        site.yml
-                        '''
+                        sh 'ansible-playbook -i inventory.ini site.yml'
                     }
                 }
             }
@@ -66,11 +70,7 @@ pipeline {
     }
 
     post {
-        success {
-            echo 'Deployment successful!'
-        }
-        failure {
-            echo 'Pipeline failed!'
-        }
+        success { echo 'Deployment successful!' }
+        failure { echo 'Pipeline failed!' }
     }
 }
