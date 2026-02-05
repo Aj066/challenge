@@ -1,5 +1,5 @@
 [frontend]
-${frontend_ip}
+${frontend_ip} ansible_user=ec2-user ansible_ssh_private_key_file=~/.ssh/id_rsa
 
 [backend]
-${backend_ip}
+${backend_ip} ansible_user=ec2-user ansible_ssh_private_key_file=~/.ssh/id_rsa
