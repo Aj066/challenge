@@ -1,0 +1,11 @@
+events {}
+
+http {
+    server {
+        listen 80;
+
+        location / {
+            proxy_pass http://{{ hostvars[groups['backend'][0]].ansible_host }}:19999;
+        }
+    }
+}
